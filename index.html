@@ -3315,7 +3315,7 @@
 
               </div>
 
-              <div class="stacked-card" style="border-color:#F59E0B; background-color:#FFFBEB;">
+              <div class="stacked-card" style="border-color:#F59E0B; background-color:#FFFBEB; display:none;">
 
                 <div class="stacked-card-title" style="color:#B45309;">REMAINING</div>
 
@@ -3687,7 +3687,7 @@
 
               </div>
 
-              <div class="stacked-card" style="border-color:#F59E0B; background-color:#FFFBEB;">
+              <div class="stacked-card" style="border-color:#F59E0B; background-color:#FFFBEB; display:none;">
 
                 <div class="stacked-card-title" style="color:#B45309;">REMAINING</div>
 
@@ -4673,7 +4673,7 @@
 
       <div class="dialog-body">
 
-        <div class="dialog-prompt">Select DT Code to Close Unresolved Tickets (Charges: ₹200):</div>
+        <div class="dialog-prompt">Select DT Code to Close Unresolved Tickets (Charges: ₹175):</div>
 
         <select class="dialog-select" id="close-dt-select">
 
@@ -7311,7 +7311,7 @@ const VALID_TOKEN = _T_PARTS.join("");
 
       document.getElementById("close-portal-status").className = "stacked-card-value status-running";
 
-      document.getElementById("close-activity-label").innerText = `Closing tickets for ${dt} (₹200)...`;
+      document.getElementById("close-activity-label").innerText = `Closing tickets for ${dt} (₹175)...`;
 
 
 
@@ -8627,7 +8627,9 @@ const VALID_TOKEN = _T_PARTS.join("");
 
           if (Array.isArray(hist) && hist.length > 0) {
 
-            const last = hist[hist.length - 1];
+            hist.sort((a, b) => new Date(b.timestamp || 0) - new Date(a.timestamp || 0));
+
+            const last = hist[0];
 
             const tot = document.getElementById("close-stat-total");
 
@@ -8639,6 +8641,8 @@ const VALID_TOKEN = _T_PARTS.join("");
 
             const rem = document.getElementById("close-stat-pending");
 
+            const remCard = rem ? (rem.closest(".stacked-card") || rem.parentElement) : null;
+
             if (tot) tot.innerText = `● ${last.processed || 0}`;
 
             if (prc) prc.innerText = `● ${last.processed || 0}`;
@@ -8647,7 +8651,19 @@ const VALID_TOKEN = _T_PARTS.join("");
 
             if (fld) fld.innerText = `● ${last.failed || 0}`;
 
-            if (rem) rem.innerText = `● 0`;
+            const hasRemaining = last.remaining !== undefined && last.remaining !== null && !isNaN(Number(last.remaining));
+
+            if (hasRemaining) {
+
+              if (rem) rem.innerText = `● ${last.remaining}`;
+
+              if (remCard) remCard.style.display = "";
+
+            } else {
+
+              if (remCard) remCard.style.display = "none";
+
+            }
 
           }
 
@@ -8703,6 +8719,7 @@ const VALID_TOKEN = _T_PARTS.join("");
 
             const totProcessed = hist.length;
 
+            // transfer_history.json is written oldest-first via append; hist[hist.length - 1] is newest
             const last = hist[hist.length - 1];
 
 
@@ -8717,6 +8734,8 @@ const VALID_TOKEN = _T_PARTS.join("");
 
             const rem = document.getElementById("transfer-stat-pending");
 
+            const remCard = rem ? (rem.closest(".stacked-card") || rem.parentElement) : null;
+
             const card = document.getElementById("transfer-card-label");
 
 
@@ -8729,7 +8748,19 @@ const VALID_TOKEN = _T_PARTS.join("");
 
             if (fld) fld.innerText = `● ${totFailed}`;
 
-            if (rem) rem.innerText = `● 0`;
+            const hasRemaining = last && last.remaining !== undefined && last.remaining !== null && !isNaN(Number(last.remaining));
+
+            if (hasRemaining) {
+
+              if (rem) rem.innerText = `● ${last.remaining}`;
+
+              if (remCard) remCard.style.display = "";
+
+            } else {
+
+              if (remCard) remCard.style.display = "none";
+
+            }
 
             if (card && last) {
 
@@ -8807,7 +8838,11 @@ const VALID_TOKEN = _T_PARTS.join("");
 
         try {
 
-          const res = await fetch(`https://api.github.com/repos/${REPO}/actions/runs?per_page=5&_t=${Date.now()}`, {
+          const runsUrl = (mode === "close")
+            ? `https://api.github.com/repos/${REPO}/actions/workflows/close_complaints.yml/runs?per_page=5&_t=${Date.now()}`
+            : `https://api.github.com/repos/${REPO}/actions/runs?per_page=5&_t=${Date.now()}`;
+
+          const res = await fetch(runsUrl, {
 
             headers: {
 
@@ -8857,11 +8892,9 @@ const VALID_TOKEN = _T_PARTS.join("");
 
               if (mode === "assign") fetchAssignHistory();
 
-              else if (mode === "close") fetchCloseHistory();
-
               else if (mode === "transfer") fetchTransferHistory();
 
-              else fetchData();
+              else if (mode !== "close") fetchData();
 
             }
 
@@ -8878,6 +8911,12 @@ const VALID_TOKEN = _T_PARTS.join("");
               portalStatus.innerText = "● Processing (Freshdesk)";
 
               portalStatus.className = "stacked-card-value status-running";
+
+            }
+
+            if (activityLabel && mode === "close") {
+
+              activityLabel.innerText = "Run in progress - logs available after completion";
 
             }
 
@@ -8973,7 +9012,19 @@ const VALID_TOKEN = _T_PARTS.join("");
 
                 const pct = Math.min(95, Math.max(15, Math.round(((completedSteps + 0.5) / totalSteps) * 100)));
 
-                if (activityLabel) activityLabel.innerText = `[${pct}%] ${currentStepName}`;
+                if (activityLabel) {
+
+                  if (mode === "close") {
+
+                    activityLabel.innerText = "Run in progress - logs available after completion";
+
+                  } else {
+
+                    activityLabel.innerText = `[${pct}%] ${currentStepName}`;
+
+                  }
+
+                }
 
                 if (pBar) pBar.style.width = `${pct}%`;
 
