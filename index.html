@@ -9300,11 +9300,49 @@ const VALID_TOKEN = _T_PARTS.join("");
 
       try {
 
-        const d = new Date(utcStr.includes("Z") ? utcStr : (utcStr.replace(" ", "T") + "Z"));
+        const s = String(utcStr).trim();
 
-        if (isNaN(d.getTime())) return utcStr;
+        if (!s) return "—";
 
-        return d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
+        if (/AM|PM/i.test(s)) return s;
+
+        // If explicitly marked as UTC with 'Z', convert to IST
+
+        if (s.includes("Z")) {
+
+          const d = new Date(s);
+
+          if (!isNaN(d.getTime())) {
+
+            return d.toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
+
+          }
+
+        }
+
+        // Processed At is already stored in IST (Asia/Kolkata): format 'YYYY-MM-DD HH:MM:SS' or 'HH:MM:SS' to readable 12-hour IST time
+
+        const m = s.match(/(?:^\d{4}-\d{2}-\d{2}\s+)?(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+
+        if (m) {
+
+          let h = parseInt(m[1], 10);
+
+          const min = m[2];
+
+          const sec = m[3] || "00";
+
+          const ampm = h >= 12 ? "PM" : "AM";
+
+          h = h % 12 || 12;
+
+          const hStr = h < 10 ? "0" + h : "" + h;
+
+          return `${hStr}:${min}:${sec} ${ampm}`;
+
+        }
+
+        return s;
 
       } catch (e) {
 
@@ -9418,7 +9456,7 @@ const VALID_TOKEN = _T_PARTS.join("");
           "Mobile": r["OLD RMN"] || r["RMN"] || "",
           "DT Code": r["DT Code"] || "",
           "Booking Time (IST)": formatISTTime(r["Processed At"] || r["processed_at"] || ""),
-          "Processed At (UTC)": r["Processed At"] || r["processed_at"] || "",
+          "Processed At (IST)": r["Processed At"] || r["processed_at"] || "",
           "Complaint Status": r["Complaint Status"] || r["status"] || "",
           "Complaint Remark": r["Complaint Remark"] || ""
         }));
